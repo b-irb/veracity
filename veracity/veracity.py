@@ -1,3 +1,4 @@
+import copy
 import enum
 
 from dataclasses import dataclass
@@ -128,7 +129,39 @@ def solve(proposition: str) -> List[Dict[str, bool]]:
     if expr is None:
         return expr
 
-    return simplify(expr)
+    def f(expr: Expr, mappings: List[Dict[Variable, str]], constraint: bool):
+        new_mappings = []
+        for mapping in mappings:
+            if isinstance(expr, Variable):
+                if (val := mapping.get(expr, constraint)) != constraint:
+                    continue
+                mapping[expr] = constraint
+                mapping = [mapping]
+
+            elif isinstance(expr, Disjunction):
+                mapping_copy = copy.deepcopy(mapping)
+                new_mappings.extend(f(expr.lhs, [mapping_copy], constraint))
+                mapping = f(expr.rhs, [mapping], constraint)
+
+            elif isinstance(expr, Conjunction):
+                m = f(expr.lhs, [mapping], constraint)
+                mapping = f(expr.rhs, m, constraint)
+
+            elif isinstance(expr, Negation):
+                mapping = f(expr.operand, [mapping], not constraint)
+
+            elif isinstance(expr, Implication):
+                if constraint == False:
+                    m = f(expr.premise, [mapping], True)
+                    mapping = f(expr.conclusion, m, False)
+                else:
+                    mapping = [mapping]
+
+            new_mappings.extend(mapping)
+        return new_mappings
+
+    simplified = simplify(expr)
+    return f(expr, [{}], True)
 
 
 def simplify(expr: Expr) -> Expr:
