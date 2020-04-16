@@ -209,3 +209,14 @@ def simplify(expr: Expr) -> Expr:
     reduce_constexprs(expr)
     return rewrite(expr)
 
+def stringify(expr: Expr) -> str:
+    if isinstance(expr, Variable):
+        return expr.identifier
+    if isinstance(expr, Negation):
+        return f"({Token.NEGATION.value}{stringify(expr.operand)})"
+    if isinstance(expr, Conjunction):
+        return f"({stringify(expr.lhs)} {Token.CONJUNCTION.value} {stringify(expr.rhs)})"
+    if isinstance(expr, Disjunction):
+        return f"({stringify(expr.lhs)} {Token.DISJUNCTION.value} {stringify(expr.rhs)})"
+    if isinstance(expr, Implication):
+        return f"({stringify(expr.premise)} {Token.IMPLICATION.value} {stringify(expr.conclusion)})"
