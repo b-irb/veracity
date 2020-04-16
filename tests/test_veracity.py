@@ -74,5 +74,44 @@ class TestSimplifier(unittest.TestCase):
         self.assertEqual(expr, Variable(identifier="Q"))
 
 
+class TestSolver(unittest.TestCase):
+    def test_conjunction(self):
+        expr = veracity.solve("V∧W")
+        self.assertEqual(
+            expr, [{Variable(identifier="W"): True, Variable(identifier="V"): True}]
+        )
+
+    def test_disjunction(self):
+        expr = veracity.solve("P∨Q")
+        self.assertEqual(
+            expr, [{Variable(identifier="Q"): True}, {Variable(identifier="P"): True}]
+        )
+
+    def test_negation(self):
+        expr = veracity.solve("¬V∧W")
+        self.assertEqual(
+            expr, [{Variable(identifier="W"): True, Variable(identifier="V"): False}]
+        )
+
+    def test_nested(self):
+        expr = veracity.solve("P∨(Q∧R)∧(¬S∨(T∨¬U→V)∧W)")
+        self.assertEqual(
+            expr,
+            [
+                {
+                    Variable(identifier="W"): True,
+                    Variable(identifier="R"): True,
+                    Variable(identifier="Q"): True,
+                },
+                {
+                    Variable(identifier="S"): False,
+                    Variable(identifier="R"): True,
+                    Variable(identifier="Q"): True,
+                },
+                {Variable(identifier="P"): True},
+            ],
+        )
+
+
 def test_version():
     assert __version__ == "0.1.0"
