@@ -6,7 +6,7 @@ from typing import Dict, List, Tuple, TypeVar, Union
 Expr = TypeVar("Expr")
 
 
-@dataclass
+@dataclass(frozen=True)
 class Variable:
     identifier: str
 
@@ -124,6 +124,55 @@ class Parser:
 
 def solve(proposition: str) -> List[Dict[str, bool]]:
     parser = Parser(proposition)
-    ast = parser.parse()
-    return ast
+    expr = parser.parse()
+    if expr is None:
+        return expr
+
+    return simplify(expr)
+
+
+def simplify(expr: Expr) -> Expr:
+    mapping = {}
+
+    def reduce_constexprs(expr: Expr, constraint: bool = True) -> bool:
+        if isinstance(expr, Variable):
+            val = mapping.get(expr, constraint)
+            if val != constraint:
+                return False
+            mapping[expr] = constraint
+        elif isinstance(expr, Negation):
+            return reduce_constexprs(expr.operand, not constraint)
+        elif isinstance(expr, Implication):
+            return reduce_constexprs(expr.premise, constraint) and reduce_constexprs(
+                expr.conclusion, constraint
+            )
+        elif isinstance(expr, Conjunction):
+            return reduce_constexprs(expr.lhs, True) and reduce_constexprs(
+                expr.rhs, True
+            )
+        elif isinstance(expr, Disjunction):
+            expr.lhs = expr.lhs if (lhs := reduce_constexprs(expr.lhs)) else lhs
+            expr.rhs = expr.rhs if (rhs := reduce_constexprs(expr.rhs)) else lhs
+            if lhs == rhs == False:
+                return False
+        return True
+
+    def rewrite(expr: Expr) -> bool:
+        if isinstance(expr, Disjunction):
+            if expr.lhs == expr.rhs == True:
+                return expr
+            return rewrite(expr.lhs if expr.lhs else expr.rhs)
+        elif isinstance(expr, Conjunction):
+            if expr.lhs == expr.rhs == True:
+                return rewrite(expr)
+            return False
+        elif isinstance(expr, Implication):
+            expr.premise = rewrite(expr.premise)
+            expr.conclusion = rewrite(expr.conclusion)
+        elif isinstance(expr, Negation):
+            expr.operand = rewrite(expr.operand)
+        return expr
+
+    reduce_constexprs(expr)
+    return rewrite(expr)
 
