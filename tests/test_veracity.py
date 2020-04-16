@@ -62,5 +62,17 @@ class TestParser(unittest.TestCase):
         )
 
 
+class TestSimplifier(unittest.TestCase):
+    def test_simplify_const_conj(self):
+        parser = Parser("P∧¬P")
+        expr = veracity.simplify(parser.parse())
+        self.assertEqual(expr, False)
+
+    def test_simplify_const_disj(self):
+        parser = Parser("(P∧¬P)∨Q")
+        expr = veracity.simplify(parser.parse())
+        self.assertEqual(expr, Variable(identifier="Q"))
+
+
 def test_version():
     assert __version__ == "0.1.0"
