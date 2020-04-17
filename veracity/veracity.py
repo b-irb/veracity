@@ -50,7 +50,7 @@ class Parentheses:
 
 
 Expr = Union[Variable, Conjunction, Disjunction, Implication, Negation, Expr]
-
+Mapping = Dict[Variable, bool]
 
 class Parser:
     """Parser to transform propositional logic statements to IR.
@@ -157,7 +157,7 @@ class Parser:
         return peek(values)
 
 
-def solve(proposition: str) -> List[Dict[Variable, bool]]:
+def solve(proposition: str, mappings: List[Mapping] = None) -> List[Mapping]:
     """Find all solutions for given proposition.
 
     Attempt to find solutions for the proposition after parsing and
@@ -165,6 +165,7 @@ def solve(proposition: str) -> List[Dict[Variable, bool]]:
 
     Args:
         proposition: Propositional logic statement.
+        mappings: List of initial variable assignments.
 
     Returns:
         List of possible variable mappings for the given proposition to
@@ -180,10 +181,14 @@ def solve(proposition: str) -> List[Dict[Variable, bool]]:
         return expr
 
     simplified = simplify(expr)
-    return _solve_expr(expr, [{}], True)
+
+    if mappings is None:
+        mappings = [{}]
+
+    return _solve_expr(expr, mappings, True)
 
 
-def solve_expr(expr: Expr) -> List[Dict[Variable, bool]]:
+def solve_expr(expr: Expr, mappings: List[Mapping] = None) -> List[Mapping]:
     """Find all solutions for given IR expression.
 
     Args:
@@ -193,12 +198,13 @@ def solve_expr(expr: Expr) -> List[Dict[Variable, bool]]:
         List of possible variable mappings for the given expression to
         evaluate to T.
     """
-    return _solve_expr(expr, [{}], True)
+    if mappings is None:
+        mappings = [{}]
+
+    return _solve_expr(expr, mappings, True)
 
 
-def _solve_expr(
-    expr: Expr, mappings: List[Dict[Variable, str]], constraint: bool
-) -> List[Dict[Variable, bool]]:
+def _solve_expr(expr: Expr, mappings: List[Mapping], constraint: bool) -> List[Mapping]:
     """Determine all evaluation trees to evaluate to desired constraint.
 
     For each initial variable mapping we attempt to coerce the current
