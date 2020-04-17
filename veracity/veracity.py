@@ -123,45 +123,50 @@ class Parser:
         return peek(values)
 
 
-def solve(proposition: str) -> List[Dict[str, bool]]:
+def solve(proposition: str) -> List[Dict[Variable, bool]]:
     parser = Parser(proposition)
     expr = parser.parse()
     if expr is None:
         return expr
 
-    def f(expr: Expr, mappings: List[Dict[Variable, str]], constraint: bool):
-        new_mappings = []
-        for mapping in mappings:
-            if isinstance(expr, Variable):
-                if (val := mapping.get(expr, constraint)) != constraint:
-                    continue
-                mapping[expr] = constraint
+    simplified = simplify(expr)
+    return _solve_expr(expr, [{}], True)
+
+
+def solve_expr(expr: Expr) -> List[Dict[Variable, bool]]:
+    return _solve_expr(expr, [{}], True)
+
+
+def _solve_expr(expr: Expr, mappings: List[Dict[Variable, str]], constraint: bool):
+    new_mappings = []
+    for mapping in mappings:
+        if isinstance(expr, Variable):
+            if (val := mapping.get(expr, constraint)) != constraint:
+                continue
+            mapping[expr] = constraint
+            mapping = [mapping]
+
+        elif isinstance(expr, Disjunction):
+            mapping_copy = copy.deepcopy(mapping)
+            new_mappings.extend(_solve_expr(expr.lhs, [mapping_copy], constraint))
+            mapping = _solve_expr(expr.rhs, [mapping], constraint)
+
+        elif isinstance(expr, Conjunction):
+            m = _solve_expr(expr.lhs, [mapping], constraint)
+            mapping = _solve_expr(expr.rhs, m, constraint)
+
+        elif isinstance(expr, Negation):
+            mapping = _solve_expr(expr.operand, [mapping], not constraint)
+
+        elif isinstance(expr, Implication):
+            if constraint == False:
+                m = _solve_expr(expr.premise, [mapping], True)
+                mapping = _solve_expr(expr.conclusion, m, False)
+            else:
                 mapping = [mapping]
 
-            elif isinstance(expr, Disjunction):
-                mapping_copy = copy.deepcopy(mapping)
-                new_mappings.extend(f(expr.lhs, [mapping_copy], constraint))
-                mapping = f(expr.rhs, [mapping], constraint)
-
-            elif isinstance(expr, Conjunction):
-                m = f(expr.lhs, [mapping], constraint)
-                mapping = f(expr.rhs, m, constraint)
-
-            elif isinstance(expr, Negation):
-                mapping = f(expr.operand, [mapping], not constraint)
-
-            elif isinstance(expr, Implication):
-                if constraint == False:
-                    m = f(expr.premise, [mapping], True)
-                    mapping = f(expr.conclusion, m, False)
-                else:
-                    mapping = [mapping]
-
-            new_mappings.extend(mapping)
-        return new_mappings
-
-    simplified = simplify(expr)
-    return f(expr, [{}], True)
+        new_mappings.extend(mapping)
+    return new_mappings
 
 
 def simplify(expr: Expr) -> Expr:
@@ -209,14 +214,19 @@ def simplify(expr: Expr) -> Expr:
     reduce_constexprs(expr)
     return rewrite(expr)
 
+
 def stringify(expr: Expr) -> str:
     if isinstance(expr, Variable):
         return expr.identifier
     if isinstance(expr, Negation):
         return f"({Token.NEGATION.value}{stringify(expr.operand)})"
     if isinstance(expr, Conjunction):
-        return f"({stringify(expr.lhs)} {Token.CONJUNCTION.value} {stringify(expr.rhs)})"
+        return (
+            f"({stringify(expr.lhs)} {Token.CONJUNCTION.value} {stringify(expr.rhs)})"
+        )
     if isinstance(expr, Disjunction):
-        return f"({stringify(expr.lhs)} {Token.DISJUNCTION.value} {stringify(expr.rhs)})"
+        return (
+            f"({stringify(expr.lhs)} {Token.DISJUNCTION.value} {stringify(expr.rhs)})"
+        )
     if isinstance(expr, Implication):
         return f"({stringify(expr.premise)} {Token.IMPLICATION.value} {stringify(expr.conclusion)})"
