@@ -53,6 +53,12 @@ Expr = Union[Variable, Conjunction, Disjunction, Implication, Negation, Expr]
 
 
 class Parser:
+    """Parser to transform propositional logic statements to IR.
+
+    Args:
+        proposition: Propositional logic expression.
+    """
+
     def __init__(self, proposition: str):
         self.proposition = proposition
         self.precedence = {
@@ -63,10 +69,26 @@ class Parser:
         }
 
     def parse(self) -> Expr:
+        """Transform proposition into IR.
+
+        The proposition is tokenised then parsed. Invalid characters are
+        ignored.
+
+        Returns:
+            Representation of propositional logic (evaluated in RPN form).
+        """
         tokens = self.tokenise()
         return self._parse_internal(tokens)
 
     def tokenise(self) -> List[Token]:
+        """Tokenise proposition.
+
+        Interpret each valid char as a token and ignore invalid chars.
+
+        Returns:
+            Valid tokens found within proposition.
+        """
+
         def predicate(char: str) -> bool:
             return char.isalpha() or char in set(token.value for token in Token)
 
@@ -79,7 +101,19 @@ class Parser:
             tokens.append(token)
         return tokens
 
-    def _parse_internal(self, tokens: List[Token]) -> List[Token]:
+    def _parse_internal(self, tokens: List[Token]) -> Expr:
+        """Parse tokens into IR.
+
+        Tokens are parsed using shunting-yard into an RPN form then combined
+        to represent fully formed expressions.
+
+        Args:
+            tokens: List of tokens to parse sequentially.
+
+        Returns:
+            Representation of parsed tokens.
+        """
+
         def peek(operators) -> Token:
             try:
                 top = operators[-1]
@@ -124,6 +158,22 @@ class Parser:
 
 
 def solve(proposition: str) -> List[Dict[Variable, bool]]:
+    """Find all solutions for given proposition.
+
+    Attempt to find solutions for the proposition after parsing and
+    simplification.
+
+    Args:
+        proposition: Propositional logic statement.
+
+    Returns:
+        List of possible variable mappings for the given proposition to
+        evaluate to T.
+
+    Examples:
+        >>> solve("(P∧¬P)∨Q")
+        [{Variable(identifier='Q'): True}]
+    """
     parser = Parser(proposition)
     expr = parser.parse()
     if expr is None:
@@ -134,10 +184,64 @@ def solve(proposition: str) -> List[Dict[Variable, bool]]:
 
 
 def solve_expr(expr: Expr) -> List[Dict[Variable, bool]]:
+    """Find all solutions for given IR expression.
+
+    Args:
+        expr: Expression to solve.
+
+    Returns:
+        List of possible variable mappings for the given expression to
+        evaluate to T.
+    """
     return _solve_expr(expr, [{}], True)
 
 
-def _solve_expr(expr: Expr, mappings: List[Dict[Variable, str]], constraint: bool):
+def _solve_expr(
+    expr: Expr, mappings: List[Dict[Variable, str]], constraint: bool
+) -> List[Dict[Variable, bool]]:
+    """Determine all evaluation trees to evaluate to desired constraint.
+
+    For each initial variable mapping we attempt to coerce the current
+    expression into the given constraint. If the expression is a variable
+    which we have already assigned a different value to what is required,
+    we reject the variable mapping. Otherwise, we denote the value of the
+    variable in the current mapping.
+
+    Conjunction requires both operands to evaluate to the same outcome. We
+    attempt to coerce both sides, if this is impossible we reject the current
+    variable mapping.
+
+    Disjunction only requires one operand to evaluate to the constraint.
+    Consequently, there are potentially two possible variable mappings per
+    disjunction (with each mapping a different state where the expression
+    holds). These cases stack, for `n` nested disjunctions, there will be
+    `2^(n-1)` mappings. A copy of the current mapping is created so both
+    operands are given a unique context. We reject the mapping of an operand
+    if it fails to coerce.
+
+    Negation requires its operand to evaluate to the opposite of the current
+    constraint. If this is impossible, we reject the mapping.
+
+    Implication attempts to satisfy the truth table.
+
+    ===== ===== =====
+      P     Q    P→Q
+    ===== ===== =====
+      T     T     T
+      T     F     F
+      F     T     T
+      F     F     T
+    ===== ===== =====
+
+    Args:
+        expr: Expression to solve.
+        mappings: List of variable mappings.
+        constraint: Target value for expression to evaluate to.
+
+    Returns:
+        List of possible variable mappings for dependent expressions to evaluate
+        to `constraint`.
+    """
     new_mappings = []
     for mapping in mappings:
         if isinstance(expr, Variable):
@@ -170,6 +274,20 @@ def _solve_expr(expr: Expr, mappings: List[Dict[Variable, str]], constraint: boo
 
 
 def simplify(expr: Expr) -> Expr:
+    """Remove constant expressions from expr.
+
+    Attempt to satisfy constraint for each expression. By determining required
+    values for an expression to hold we can determine expressions with constant
+    results (e.g. P∧¬P is always F).
+
+    Args:
+        expr: Expression to simplify.
+
+    Examples:
+        >>> expr = Parser("(P∧¬P)∨Q").parse()
+        >>> simplify(expr)
+         Variable(identifier='Q')
+    """
     mapping = {}
 
     def reduce_constexprs(expr: Expr, constraint: bool = True) -> bool:
@@ -216,6 +334,14 @@ def simplify(expr: Expr) -> Expr:
 
 
 def stringify(expr: Expr) -> str:
+    """Transform IR into string.
+
+    Args:
+        expr: Expression to transform.
+
+    Returns:
+        String representation of expression.
+    """
     if isinstance(expr, Variable):
         return expr.identifier
     if isinstance(expr, Negation):
