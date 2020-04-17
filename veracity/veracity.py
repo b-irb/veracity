@@ -242,6 +242,9 @@ def _solve_expr(
         List of possible variable mappings for dependent expressions to evaluate
         to `constraint`.
     """
+    if isinstance(expr, bool):
+        return expr == constraint
+
     new_mappings = []
     for mapping in mappings:
         if isinstance(expr, Variable):
