@@ -112,6 +112,11 @@ class TestSolver(unittest.TestCase):
             ],
         )
 
+    def test_constant(self):
+        expr = Conjunction(lhs=True, rhs=Variable(identifier="P"))
+        cases = veracity.solve_expr(expr)
+        self.assertEqual(cases, [{Variable(identifier="P"): True}])
+
 
 def test_version():
     assert __version__ == "0.1.0"

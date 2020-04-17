@@ -249,7 +249,7 @@ def _solve_expr(expr: Expr, mappings: List[Mapping], constraint: bool) -> List[M
         to `constraint`.
     """
     if isinstance(expr, bool):
-        return expr == constraint
+        return mappings if expr == constraint else []
 
     new_mappings = []
     for mapping in mappings:
