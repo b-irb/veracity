@@ -52,6 +52,7 @@ class Parentheses:
 Expr = Union[Variable, Conjunction, Disjunction, Implication, Negation, Expr]
 Mapping = Dict[Variable, bool]
 
+
 class Parser:
     """Parser to transform propositional logic statements to IR.
 
@@ -272,11 +273,8 @@ def _solve_expr(expr: Expr, mappings: List[Mapping], constraint: bool) -> List[M
             mapping = _solve_expr(expr.operand, [mapping], not constraint)
 
         elif isinstance(expr, Implication):
-            if constraint == False:
-                m = _solve_expr(expr.premise, [mapping], True)
-                mapping = _solve_expr(expr.conclusion, m, False)
-            else:
-                mapping = [mapping]
+            m = _solve_expr(expr.conclusion, [mapping], constraint)
+            mapping = _solve_expr(expr.premise, m, not constraint)
 
         new_mappings.extend(mapping)
     return new_mappings
